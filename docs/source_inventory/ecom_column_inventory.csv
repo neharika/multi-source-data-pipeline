@@ -1,0 +1,288 @@
+"table_name","column_name","data_type","is_nullable","ordinal_position"
+"addresses","address_id","bigint","NO",1
+"addresses","line1","text","YES",2
+"addresses","line2","text","YES",3
+"addresses","landmark","text","YES",4
+"addresses","city","text","YES",5
+"addresses","state","text","YES",6
+"addresses","country","text","YES",7
+"addresses","postal_code","text","YES",8
+"addresses","latitude","numeric","YES",9
+"addresses","longitude","numeric","YES",10
+"attribution_campaigns","touch_id","bigint","NO",1
+"attribution_campaigns","campaign_id","text","NO",2
+"attribution_campaigns","ad_cost_attributed","numeric","YES",3
+"attribution_touches","touch_id","bigint","NO",1
+"attribution_touches","session_id","uuid","YES",2
+"attribution_touches","touched_at","timestamp with time zone","NO",3
+"attribution_touches","utm_source","text","YES",4
+"attribution_touches","utm_medium","text","YES",5
+"attribution_touches","utm_campaign","text","YES",6
+"attribution_touches","utm_term","text","YES",7
+"attribution_touches","utm_content","text","YES",8
+"attribution_touches","channel","text","YES",9
+"attribution_touches","referrer","text","YES",10
+"brands","brand_id","bigint","NO",1
+"brands","brand_name","text","NO",2
+"categories","category_id","bigint","NO",1
+"categories","category_name","text","NO",2
+"categories","parent_id","bigint","YES",3
+"collection_products","collection_id","bigint","NO",1
+"collection_products","product_id","bigint","NO",2
+"collection_products","position","integer","YES",3
+"collections","collection_id","bigint","NO",1
+"collections","collection_name","text","NO",2
+"collections","created_at","timestamp with time zone","NO",3
+"consents","consent_id","bigint","NO",1
+"consents","customer_id","bigint","YES",2
+"consents","consent_type","text","NO",3
+"consents","status","text","NO",4
+"consents","updated_at","timestamp with time zone","NO",5
+"coupons","coupon_id","bigint","NO",1
+"coupons","code","text","NO",2
+"coupons","discount_type","text","NO",3
+"coupons","discount_value","numeric","NO",4
+"coupons","max_uses","integer","YES",5
+"coupons","max_uses_per_customer","integer","YES",6
+"coupons","starts_at","timestamp with time zone","NO",7
+"coupons","ends_at","timestamp with time zone","NO",8
+"coupons","is_active","boolean","YES",9
+"customer_addresses","customer_id","bigint","NO",1
+"customer_addresses","address_id","bigint","NO",2
+"customer_addresses","address_type","text","NO",3
+"customer_addresses","is_default","boolean","YES",4
+"customer_addresses","created_at","timestamp with time zone","NO",5
+"customer_segments","segment_id","bigint","NO",1
+"customer_segments","segment_name","text","NO",2
+"customers","customer_id","bigint","NO",1
+"customers","created_at","timestamp with time zone","NO",2
+"customers","first_name","text","YES",3
+"customers","last_name","text","YES",4
+"customers","dob","date","YES",5
+"customers","gender","text","YES",6
+"customers","primary_email","text","YES",7
+"customers","primary_phone","text","YES",8
+"customers","country","text","YES",9
+"customers","state","text","YES",10
+"customers","city","text","YES",11
+"customers","is_email_verified","boolean","YES",12
+"customers","is_phone_verified","boolean","YES",13
+"customers","marketing_opt_in","boolean","YES",14
+"customers","lifecycle_stage","text","YES",15
+"customers","acquisition_channel","text","YES",16
+"customers","source","text","YES",17
+"customers","utm_campaign","text","YES",18
+"customers","utm_medium","text","YES",19
+"customers","utm_source","text","YES",20
+"devices","device_id","bigint","NO",1
+"devices","device_type","text","YES",2
+"devices","os","text","YES",3
+"devices","browser","text","YES",4
+"devices","model","text","YES",5
+"experiment_assignments","experiment_id","bigint","NO",1
+"experiment_assignments","exp_variant_id","bigint","YES",2
+"experiment_assignments","session_id","uuid","NO",3
+"experiment_assignments","assigned_at","timestamp with time zone","NO",4
+"experiment_assignments","customer_id","bigint","YES",5
+"experiment_assignments","assignment_source","text","YES",6
+"experiment_variants","variant_id","bigint","NO",1
+"experiment_variants","experiment_id","bigint","YES",2
+"experiment_variants","variant_name","text","NO",3
+"experiment_variants","allocation_pct","numeric","YES",4
+"experiment_variants","is_control","boolean","YES",5
+"experiments","experiment_id","bigint","NO",1
+"experiments","name","text","NO",2
+"experiments","starts_at","timestamp with time zone","NO",3
+"experiments","ends_at","timestamp with time zone","NO",4
+"experiments","hypothesis","text","YES",5
+"experiments","owner","text","YES",6
+"experiments","status","text","YES",7
+"experiments","primary_metric","text","YES",8
+"inventory_items","warehouse_id","bigint","NO",1
+"inventory_items","variant_id","bigint","NO",2
+"inventory_items","on_hand","integer","NO",3
+"inventory_items","reserved","integer","NO",4
+"inventory_movements","movement_id","bigint","NO",1
+"inventory_movements","movement_time","timestamp with time zone","NO",2
+"inventory_movements","warehouse_id","bigint","YES",3
+"inventory_movements","variant_id","bigint","YES",4
+"inventory_movements","direction","text","NO",5
+"inventory_movements","qty","integer","NO",6
+"inventory_movements","reason","text","YES",7
+"inventory_movements","reference","text","YES",8
+"loyalty_accounts","customer_id","bigint","NO",1
+"loyalty_accounts","created_at","timestamp with time zone","NO",2
+"loyalty_accounts","tier","text","NO",3
+"loyalty_transactions","loyalty_txn_id","bigint","NO",1
+"loyalty_transactions","customer_id","bigint","YES",2
+"loyalty_transactions","txn_time","timestamp with time zone","NO",3
+"loyalty_transactions","points_delta","integer","NO",4
+"loyalty_transactions","reason","text","YES",5
+"loyalty_transactions","order_id","bigint","YES",6
+"marketing_campaigns","campaign_id","text","NO",1
+"marketing_campaigns","name","text","NO",2
+"marketing_campaigns","channel","text","NO",3
+"marketing_campaigns","budget","numeric","YES",4
+"marketing_campaigns","starts_at","timestamp with time zone","NO",5
+"marketing_campaigns","ends_at","timestamp with time zone","NO",6
+"marketing_campaigns","created_at","timestamp with time zone","NO",7
+"notifications","notification_id","bigint","NO",1
+"notifications","customer_id","bigint","YES",2
+"notifications","created_at","timestamp with time zone","NO",3
+"notifications","channel","text","NO",4
+"notifications","template","text","YES",5
+"notifications","status","text","YES",6
+"notifications","related_session_id","uuid","YES",7
+"notifications","opened_at","timestamp with time zone","YES",8
+"notifications","clicked_at","timestamp with time zone","YES",9
+"order_items","order_id","bigint","NO",1
+"order_items","variant_id","bigint","NO",2
+"order_items","qty","integer","NO",3
+"order_items","unit_price","numeric","NO",4
+"order_items","line_discount","numeric","NO",5
+"order_items","line_total","numeric","NO",6
+"order_refunds","order_id","bigint","YES",1
+"order_refunds","refund_amount","numeric","YES",2
+"order_status_history","order_id","bigint","NO",1
+"order_status_history","status","text","NO",2
+"order_status_history","changed_at","timestamp with time zone","NO",3
+"order_status_history","reason","text","YES",4
+"orders","order_id","bigint","NO",1
+"orders","order_number","text","NO",2
+"orders","created_at","timestamp with time zone","NO",3
+"orders","customer_id","bigint","YES",4
+"orders","session_id","uuid","YES",5
+"orders","cart_id","uuid","YES",6
+"orders","price_list_id","bigint","YES",7
+"orders","status","text","NO",8
+"orders","subtotal","numeric","NO",9
+"orders","discount","numeric","NO",10
+"orders","tax","numeric","NO",11
+"orders","shipping_fee","numeric","NO",12
+"orders","total","numeric","NO",13
+"orders","payment_status","text","NO",14
+"orders","shipping_address_id","bigint","YES",15
+"orders","billing_address_id","bigint","YES",16
+"orders","applied_coupon_id","bigint","YES",17
+"orders","applied_promo_id","bigint","YES",18
+"payment_intents","payment_intent_id","bigint","NO",1
+"payment_intents","order_id","bigint","YES",2
+"payment_intents","created_at","timestamp with time zone","NO",3
+"payment_intents","payment_method_id","bigint","YES",4
+"payment_intents","amount","numeric","NO",5
+"payment_intents","status","text","NO",6
+"payment_methods","payment_method_id","bigint","NO",1
+"payment_methods","method_name","text","NO",2
+"payment_transactions","txn_id","bigint","NO",1
+"payment_transactions","payment_intent_id","bigint","YES",2
+"payment_transactions","txn_time","timestamp with time zone","NO",3
+"payment_transactions","gateway","text","YES",4
+"payment_transactions","status","text","NO",5
+"payment_transactions","error_code","text","YES",6
+"payment_transactions","error_message","text","YES",7
+"price_lists","price_list_id","bigint","NO",1
+"price_lists","name","text","NO",2
+"price_lists","currency","text","NO",3
+"prices","price_list_id","bigint","NO",1
+"prices","variant_id","bigint","NO",2
+"prices","list_price","numeric","NO",3
+"prices","sale_price","numeric","YES",4
+"prices","valid_from","timestamp with time zone","NO",5
+"prices","valid_to","timestamp with time zone","YES",6
+"product_images","image_id","bigint","NO",1
+"product_images","product_id","bigint","YES",2
+"product_images","image_url","text","YES",3
+"product_images","position","integer","YES",4
+"product_reviews","review_id","bigint","NO",1
+"product_reviews","customer_id","bigint","YES",2
+"product_reviews","product_id","bigint","YES",3
+"product_reviews","order_id","bigint","YES",4
+"product_reviews","rating","integer","NO",5
+"product_reviews","title","text","YES",6
+"product_reviews","body","text","YES",7
+"product_reviews","created_at","timestamp with time zone","NO",8
+"product_variants","variant_id","bigint","NO",1
+"product_variants","product_id","bigint","YES",2
+"product_variants","sku","text","NO",3
+"product_variants","color","text","YES",4
+"product_variants","size","text","YES",5
+"product_variants","attributes","jsonb","YES",6
+"product_variants","is_active","boolean","YES",7
+"products","product_id","bigint","NO",1
+"products","created_at","timestamp with time zone","NO",2
+"products","product_name","text","NO",3
+"products","brand_id","bigint","YES",4
+"products","category_id","bigint","YES",5
+"products","description","text","YES",6
+"products","is_active","boolean","YES",7
+"promotion_rules","rule_id","bigint","NO",1
+"promotion_rules","promo_id","bigint","YES",2
+"promotion_rules","min_cart_value","numeric","YES",3
+"promotion_rules","category_id","bigint","YES",4
+"promotion_rules","product_id","bigint","YES",5
+"promotions","promo_id","bigint","NO",1
+"promotions","promo_name","text","NO",2
+"promotions","promo_type","text","NO",3
+"promotions","discount_type","text","NO",4
+"promotions","discount_value","numeric","NO",5
+"promotions","starts_at","timestamp with time zone","NO",6
+"promotions","ends_at","timestamp with time zone","NO",7
+"promotions","is_active","boolean","YES",8
+"refunds","refund_id","bigint","NO",1
+"refunds","order_id","bigint","YES",2
+"refunds","created_at","timestamp with time zone","NO",3
+"refunds","amount","numeric","NO",4
+"refunds","reason","text","YES",5
+"refunds","status","text","NO",6
+"return_items","return_id","bigint","NO",1
+"return_items","variant_id","bigint","NO",2
+"return_items","qty","integer","NO",3
+"return_items","reason_id","bigint","YES",4
+"return_reasons","reason_id","bigint","NO",1
+"return_reasons","reason_text","text","NO",2
+"return_requests","return_id","bigint","NO",1
+"return_requests","order_id","bigint","YES",2
+"return_requests","customer_id","bigint","YES",3
+"return_requests","requested_at","timestamp with time zone","NO",4
+"return_requests","status","text","NO",5
+"segment_memberships","segment_id","bigint","NO",1
+"segment_memberships","customer_id","bigint","NO",2
+"segment_memberships","valid_from","timestamp with time zone","NO",3
+"segment_memberships","valid_to","timestamp with time zone","YES",4
+"session_channels","session_id","uuid","YES",1
+"session_channels","channel","text","YES",2
+"session_events","event_id","bigint","NO",1
+"session_events","session_id","uuid","NO",2
+"session_events","customer_id","bigint","YES",3
+"session_events","event_type","text","NO",4
+"session_events","occurred_at","timestamp with time zone","NO",5
+"session_events","product_id","bigint","YES",6
+"session_events","variant_id","bigint","YES",7
+"session_events","quantity","integer","YES",8
+"session_events","unit_price","numeric","YES",9
+"session_events","order_id","bigint","YES",10
+"sessions","session_id","uuid","NO",1
+"sessions","started_at","timestamp with time zone","NO",2
+"sessions","ended_at","timestamp with time zone","YES",3
+"sessions","customer_id","bigint","YES",4
+"sessions","anonymous_id","uuid","YES",5
+"sessions","device_id","bigint","YES",6
+"sessions","ip_address","inet","YES",7
+"sessions","country","text","YES",8
+"sessions","region","text","YES",9
+"sessions","city","text","YES",10
+"sessions","landing_page","text","YES",11
+"sessions","referrer","text","YES",12
+"shipments","shipment_id","bigint","NO",1
+"shipments","order_id","bigint","YES",2
+"shipments","carrier_id","bigint","YES",3
+"shipments","shipping_method_id","bigint","YES",4
+"shipments","shipped_at","timestamp with time zone","YES",5
+"shipments","delivered_at","timestamp with time zone","YES",6
+"shipments","tracking_number","text","YES",7
+"shipments","status","text","NO",8
+"shipping_carriers","carrier_id","bigint","NO",1
+"shipping_carriers","carrier_name","text","NO",2
+"shipping_methods","shipping_method_id","bigint","NO",1
+"shipping_methods","method_name","text","NO",2
+"shipping_methods","base_fee","numeric","NO",3

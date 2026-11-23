@@ -1,0 +1,160 @@
+"table_name","column_name","data_type","is_nullable","ordinal_position"
+"accounts","account_id","bigint","NO",1
+"accounts","name","text","NO",2
+"accounts","account_type","text","NO",3
+"accounts","industry","text","YES",4
+"accounts","employee_count","integer","YES",5
+"accounts","country","text","YES",6
+"accounts","signup_date","timestamp with time zone","YES",7
+"accounts","acquisition_channel","text","YES",8
+"email_sends","send_id","bigint","NO",1
+"email_sends","user_id","integer","YES",2
+"email_sends","campaign_name","text","YES",3
+"email_sends","send_type","text","YES",4
+"email_sends","sent_at","timestamp with time zone","YES",5
+"email_sends","opened_at","timestamp with time zone","YES",6
+"email_sends","clicked_at","timestamp with time zone","YES",7
+"events","event_id","integer","NO",1
+"events","user_id","integer","YES",2
+"events","event_type","text","YES",3
+"events","occurred_at","timestamp without time zone","YES",4
+"events","properties","text","YES",5
+"events","account_id","bigint","YES",6
+"events","feature_id","integer","YES",7
+"experiment_assignments","assignment_id","integer","NO",1
+"experiment_assignments","experiment_id","integer","YES",2
+"experiment_assignments","user_id","integer","YES",3
+"experiment_assignments","variant","text","YES",4
+"experiment_assignments","assigned_at","timestamp without time zone","YES",5
+"experiment_assignments","variant_id","integer","YES",6
+"experiment_variants","variant_id","integer","NO",1
+"experiment_variants","experiment_id","integer","YES",2
+"experiment_variants","variant_name","text","YES",3
+"experiment_variants","allocation_pct","numeric","YES",4
+"experiment_variants","is_control","boolean","YES",5
+"experiments","experiment_id","integer","NO",1
+"experiments","name","text","YES",2
+"experiments","start_date","timestamp without time zone","YES",3
+"experiments","end_date","timestamp without time zone","YES",4
+"experiments","hypothesis","text","YES",5
+"experiments","owner","text","YES",6
+"experiments","status","text","YES",7
+"features","feature_id","integer","NO",1
+"features","feature_name","text","YES",2
+"features","category","text","YES",3
+"features","release_date","timestamp without time zone","YES",4
+"invoices","invoice_id","integer","NO",1
+"invoices","user_id","integer","YES",2
+"invoices","subscription_id","integer","YES",3
+"invoices","amount","numeric","YES",4
+"invoices","status","text","YES",5
+"invoices","issued_date","timestamp without time zone","YES",6
+"invoices","paid_date","timestamp without time zone","YES",7
+"invoices","due_date","timestamp without time zone","YES",8
+"invoices","account_id","bigint","YES",9
+"legacy_companies","id","integer","NO",1
+"legacy_companies","name","character varying","NO",2
+"legacy_companies","industry","character varying","NO",3
+"legacy_companies","employee_count","integer","NO",4
+"legacy_companies","signup_date","date","NO",5
+"legacy_companies","country","character varying","NO",6
+"legacy_events","id","integer","NO",1
+"legacy_events","company_id","integer","NO",2
+"legacy_events","event_type","character varying","NO",3
+"legacy_events","event_date","date","NO",4
+"legacy_events","properties","jsonb","YES",5
+"legacy_invoices","id","integer","NO",1
+"legacy_invoices","company_id","integer","NO",2
+"legacy_invoices","subscription_id","integer","NO",3
+"legacy_invoices","amount","numeric","NO",4
+"legacy_invoices","status","character varying","NO",5
+"legacy_invoices","issued_date","date","NO",6
+"legacy_invoices","paid_date","date","YES",7
+"legacy_subscriptions","id","integer","NO",1
+"legacy_subscriptions","company_id","integer","NO",2
+"legacy_subscriptions","plan","character varying","NO",3
+"legacy_subscriptions","start_date","date","NO",4
+"legacy_subscriptions","end_date","date","YES",5
+"legacy_subscriptions","mrr","numeric","NO",6
+"legacy_subscriptions","status","character varying","NO",7
+"legacy_subscriptions","cancelled_at","timestamp without time zone","YES",8
+"legacy_subscriptions","cancellation_reason","character varying","YES",9
+"legacy_support_tickets","id","integer","NO",1
+"legacy_support_tickets","company_id","integer","NO",2
+"legacy_support_tickets","subject","character varying","NO",3
+"legacy_support_tickets","priority","character varying","NO",4
+"legacy_support_tickets","status","character varying","NO",5
+"legacy_support_tickets","created_at","timestamp without time zone","NO",6
+"legacy_support_tickets","resolved_at","timestamp without time zone","YES",7
+"legacy_support_tickets","category","character varying","NO",8
+"payment_attempts","attempt_id","integer","NO",1
+"payment_attempts","invoice_id","integer","YES",2
+"payment_attempts","user_id","integer","YES",3
+"payment_attempts","subscription_id","integer","YES",4
+"payment_attempts","amount","numeric","YES",5
+"payment_attempts","status","text","YES",6
+"payment_attempts","failure_reason","text","YES",7
+"payment_attempts","attempt_number","integer","YES",8
+"payment_attempts","attempted_at","timestamp without time zone","YES",9
+"payment_attempts","account_id","bigint","YES",10
+"plans","plan_id","integer","NO",1
+"plans","plan_name","text","NO",2
+"plans","monthly_price","numeric","NO",3
+"plans","seat_limit","integer","YES",4
+"plans","billing_interval","text","NO",5
+"seats","seat_id","bigint","NO",1
+"seats","account_id","bigint","YES",2
+"seats","user_id","integer","YES",3
+"seats","activated_at","timestamp with time zone","YES",4
+"seats","deactivated_at","timestamp with time zone","YES",5
+"signups","user_id","integer","YES",1
+"signups","account_id","bigint","YES",2
+"signups","signup_date","timestamp without time zone","YES",3
+"signups","signup_source","text","YES",4
+"subscription_events","event_id","integer","NO",1
+"subscription_events","subscription_id","integer","YES",2
+"subscription_events","user_id","integer","YES",3
+"subscription_events","event_type","text","YES",4
+"subscription_events","event_time","timestamp without time zone","YES",5
+"subscription_events","from_plan","text","YES",6
+"subscription_events","to_plan","text","YES",7
+"subscription_events","mrr_delta","numeric","YES",8
+"subscription_events","account_id","bigint","YES",9
+"subscription_events","actor_user_id","integer","YES",10
+"subscription_events","seats_delta","integer","YES",11
+"subscriptions","subscription_id","integer","NO",1
+"subscriptions","user_id","integer","YES",2
+"subscriptions","plan","text","YES",3
+"subscriptions","start_date","timestamp without time zone","YES",4
+"subscriptions","end_date","timestamp without time zone","YES",5
+"subscriptions","mrr","numeric","YES",6
+"subscriptions","status","text","YES",7
+"subscriptions","cancelled_at","timestamp without time zone","YES",8
+"subscriptions","cancellation_reason","text","YES",9
+"subscriptions","account_id","bigint","YES",10
+"subscriptions","seat_count","integer","YES",11
+"subscriptions","plan_id","integer","YES",12
+"support_tickets","ticket_id","bigint","NO",1
+"support_tickets","account_id","bigint","YES",2
+"support_tickets","opened_by_user_id","integer","YES",3
+"support_tickets","opened_at","timestamp with time zone","YES",4
+"support_tickets","closed_at","timestamp with time zone","YES",5
+"support_tickets","priority","text","YES",6
+"support_tickets","category","text","YES",7
+"support_tickets","csat","integer","YES",8
+"trials","trial_id","bigint","NO",1
+"trials","account_id","bigint","YES",2
+"trials","started_at","timestamp with time zone","YES",3
+"trials","ends_at","timestamp with time zone","YES",4
+"trials","converted_at","timestamp with time zone","YES",5
+"trials","converted_subscription_id","bigint","YES",6
+"users","user_id","integer","NO",1
+"users","email","text","YES",2
+"users","company_name","text","YES",3
+"users","signup_date","timestamp without time zone","YES",4
+"users","signup_source","text","YES",5
+"users","plan_type","text","YES",6
+"users","is_active","integer","YES",7
+"users","last_login_date","timestamp without time zone","YES",8
+"users","account_id","bigint","YES",9
+"users","role","text","YES",10

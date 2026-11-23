@@ -80,3 +80,8 @@ tempCodeRunnerFile.py
 # ==========================================
 site/
 docs/_build/
+
+
+
+# SQLTools local session files
+*.session.sql
