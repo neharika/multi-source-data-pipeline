@@ -8,10 +8,10 @@ from src.db import get_saas_engine
 
 def extract_saas_tables():
     """
-    Extract selected SaaS tables in pages.
+    Extract selected SaaS tables using keyset pagination.
 
-    Each page is fetched using a short-lived source connection.
-    Rows are ordered by primary key to ensure deterministic pagination.
+    Each page uses a short-lived source connection.
+    Pagination uses the table's primary key.
     """
 
     engine = get_saas_engine()
@@ -38,7 +38,7 @@ def extract_saas_tables():
         for table_name in SAAS_TABLES:
             print(f"\nExtracting: {table_name}")
 
-            # Retrieve the table's primary-key columns.
+            # Retrieve the table's primary-key column.
             primary_key_info = inspector.get_pk_constraint(
                 table_name,
                 schema="saas"
@@ -50,11 +50,9 @@ def extract_saas_tables():
 
             if not primary_key_columns:
                 raise ValueError(
-                    f"No primary key found for saas.{table_name}. "
-                    "Deterministic pagination requires a primary key."
+                    f"No primary key found for saas.{table_name}."
                 )
 
-            # Reflect the source table structure.
             source_table = Table(
                 table_name,
                 MetaData(),
@@ -62,30 +60,35 @@ def extract_saas_tables():
                 autoload_with=engine
             )
 
-            # Build an ordered query using every primary-key column.
+            key_column = source_table.c[
+                primary_key_columns[0]
+            ]
+
             statement = (
                 select(source_table)
-                .order_by(
-                    *[
-                        source_table.c[column]
-                        for column in primary_key_columns
-                    ]
-                )
+                .order_by(key_column)
             )
 
-            offset = 0
+            last_value = None
             table_has_rows = False
 
             while True:
 
-                page_query = (
-                    statement
-                    .limit(EXTRACTION_CHUNK_SIZE)
-                    .offset(offset)
+                page_query = statement
+
+                # Continue after the last primary-key value
+                # retrieved from the previous page.
+                if last_value is not None:
+                    page_query = page_query.where(
+                        key_column > last_value
+                    )
+
+                page_query = page_query.limit(
+                    EXTRACTION_CHUNK_SIZE
                 )
 
-                # Fetch the complete page and close the connection
-                # before yielding the DataFrame to the loader.
+                # Fetch the page and close the source connection
+                # before yielding data to the loader.
                 with engine.connect() as connection:
                     chunk = pd.read_sql_query(
                         page_query,
@@ -101,12 +104,19 @@ def extract_saas_tables():
                     f"  Rows extracted: {len(chunk):,}"
                 )
 
-                offset += len(chunk)
+                # Convert NumPy scalar values into native
+                # Python values for database compatibility.
+                value = chunk.iloc[-1][primary_key_columns[0]]
+
+                last_value = (
+                    value.item()
+                    if hasattr(value, "item")
+                    else value
+                )
 
                 yield table_name, chunk
 
-            # Preserve the table structure when the source table
-            # contains no records.
+            # Preserve the table structure when it contains no rows.
             if not table_has_rows:
 
                 empty_query = statement.limit(0)

@@ -1,6 +1,6 @@
 
 import pandas as pd
-from sqlalchemy import MetaData, Table, inspect, select
+from sqlalchemy import MetaData, Table, inspect, select, tuple_
 
 from src.config import ECOM_TABLES, EXTRACTION_CHUNK_SIZE
 from src.db import get_ecom_engine
@@ -8,10 +8,11 @@ from src.db import get_ecom_engine
 
 def extract_ecom_tables():
     """
-    Extract selected E-commerce tables in pages.
+    Extract selected E-commerce tables using keyset pagination.
 
-    Each page is fetched using a short-lived source connection.
-    Rows are ordered by primary key to ensure deterministic pagination.
+    Each page uses a short-lived source connection.
+    Pagination uses the complete primary key, including
+    composite primary keys.
     """
 
     engine = get_ecom_engine()
@@ -38,7 +39,6 @@ def extract_ecom_tables():
         for table_name in ECOM_TABLES:
             print(f"\nExtracting: {table_name}")
 
-            # Retrieve the table's primary-key columns.
             primary_key_info = inspector.get_pk_constraint(
                 table_name,
                 schema="ecom"
@@ -50,11 +50,9 @@ def extract_ecom_tables():
 
             if not primary_key_columns:
                 raise ValueError(
-                    f"No primary key found for ecom.{table_name}. "
-                    "Deterministic pagination requires a primary key."
+                    f"No primary key found for ecom.{table_name}."
                 )
 
-            # Reflect the source table structure.
             source_table = Table(
                 table_name,
                 MetaData(),
@@ -62,26 +60,35 @@ def extract_ecom_tables():
                 autoload_with=engine
             )
 
-            # Build an ordered query using every primary-key column.
-            statement = (
-                select(source_table)
-                .order_by(
-                    *[
-                        source_table.c[column]
-                        for column in primary_key_columns
-                    ]
-                )
-            )
+            key_columns = [
+                source_table.c[column]
+                for column in primary_key_columns
+            ]
 
-            offset = 0
+            statement = select(source_table).order_by(*key_columns)
+
+            last_values = None
             table_has_rows = False
 
             while True:
 
-                page_query = (
-                    statement
-                    .limit(EXTRACTION_CHUNK_SIZE)
-                    .offset(offset)
+                page_query = statement
+
+                # Start after the last primary-key value
+                # retrieved from the previous page.
+                if last_values is not None:
+
+                    if len(key_columns) == 1:
+                        page_query = page_query.where(
+                            key_columns[0] > last_values[0]
+                        )
+                    else:
+                        page_query = page_query.where(
+                            tuple_(*key_columns) > tuple_(*last_values)
+                        )
+
+                page_query = page_query.limit(
+                    EXTRACTION_CHUNK_SIZE
                 )
 
                 # Fetch the complete page and close the connection
@@ -101,12 +108,18 @@ def extract_ecom_tables():
                     f"  Rows extracted: {len(chunk):,}"
                 )
 
-                offset += len(chunk)
+                # Save the complete primary key of the last row.
+                last_row = chunk.iloc[-1]
+
+                last_values = [
+                    last_row[column].item()
+                    if hasattr(last_row[column], "item")
+                    else last_row[column]
+                    for column in primary_key_columns
+                ]
 
                 yield table_name, chunk
 
-            # Preserve the table structure when the source table
-            # contains no records.
             if not table_has_rows:
 
                 empty_query = statement.limit(0)
