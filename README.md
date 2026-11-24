@@ -111,7 +111,85 @@ Never commit `.env` or database credentials to GitHub.
 
 ## 7. Pipeline Execution
 
-Execution instructions will be added as the ETL pipeline is developed.
+### Prerequisites
+
+- Python 3.13+
+- PostgreSQL source database access for E-commerce and SaaS
+- Supabase PostgreSQL target database access
+- Environment variables configured in `.env`
+- Target SSL certificate available at the configured path
+
+### 1. Activate the Virtual Environment
+
+From the project root:
+
+```bash
+source venv/bin/activate
+```
+
+### 2. Verify Database Connections
+
+Run:
+
+```bash
+python test_connections.py
+```
+
+The script checks connectivity to all three databases:
+- E-commerce source
+- SaaS source
+- Target warehouse
+
+### 3. Run the Loader Test
+
+Run:
+
+```bash
+python test_loader.py
+```
+
+This tests staging-table creation, data insertion, row-count verification, table publication, and column-type preservation using sample records.
+
+### 4. Execute the ETL Pipeline
+
+Run the pipeline from the project root:
+
+```bash
+python -m src.main
+```
+
+The pipeline performs the following operations:
+
+1. Extracts the selected E-commerce and SaaS source tables in chunks.
+2. Creates staging tables in the target warehouse.
+3. Loads extracted records in batches.
+4. Verifies staging row counts before publishing target tables.
+5. Compares source and target row counts.
+6. Generates `data/raw/MANIFEST.md` with table-level validation results.
+
+### 5. Expected Validation Results
+
+The current pipeline is configured to process 17 selected tables:
+
+| Source | Tables | Expected Rows |
+|---|---:|---:|
+| E-commerce | 11 | 944,414 |
+| SaaS | 6 | 67,395 |
+| **Total** | **17** | **1,011,809** |
+
+A successful execution should report:
+
+- 17 tables validated
+- 17 passed
+- 0 failed
+- All source and target row counts match
+
+The generated manifest is saved at:
+
+`data/raw/MANIFEST.md`
+
+**Note:** The pipeline performs a full refresh of the selected target tables. Existing target tables are replaced only after their corresponding staging tables have been loaded and verified. Source databases are read-only and are not modified.
+
 
 ## 8. Project Status
 
@@ -119,8 +197,6 @@ Execution instructions will be added as the ETL pipeline is developed.
 
 ## 9. Future Development
 
-- Source data extraction
-- Raw data ingestion
 - Data transformation
 - Warehouse modelling
 - Data quality validation

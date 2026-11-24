@@ -1,5 +1,5 @@
 
-from sqlalchemy import Column, MetaData, Table, inspect
+from sqlalchemy import Column, MetaData, Table, inspect, text
 
 from src.config import LOAD_CHUNK_SIZE
 from src.db import get_target_engine
@@ -7,8 +7,10 @@ from src.db import get_target_engine
 
 def load_chunks(chunks, target_schema, source_engine, source_schema):
     """
-    Create raw target tables using source column metadata,
-    then insert extracted DataFrame chunks.
+    Load source DataFrame chunks into staging tables.
+
+    Replace existing target tables only after the staging
+    table has been loaded and its row count verified.
 
     Source column types and nullability are preserved.
     Primary keys, foreign keys, and source defaults are
@@ -23,9 +25,57 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
     engine = get_target_engine()
     source_inspector = inspect(source_engine)
 
-    initialized_tables = set()
-    target_tables = {}
     loaded_counts = {}
+
+    active_table_name = None
+    staging_table = None
+
+    def finalize_table(table_name, stage_table):
+        """Verify staging data and atomically replace the target table."""
+
+        staging_name = stage_table.name
+
+        count_query = text(
+            f'SELECT COUNT(*) FROM "{target_schema}"."{staging_name}"'
+        )
+
+        with engine.connect() as conn:
+            staged_count = conn.execute(count_query).scalar_one()
+
+        expected_count = loaded_counts[table_name]
+
+        if staged_count != expected_count:
+            raise RuntimeError(
+                f"Staging row count mismatch for {table_name}: "
+                f"expected {expected_count}, found {staged_count}"
+            )
+
+        print(
+            f"\nStaging validation passed: "
+            f"{target_schema}.{table_name} "
+            f"({staged_count:,} rows)"
+        )
+
+        # PostgreSQL transactional DDL makes this replacement atomic.
+        with engine.begin() as conn:
+            conn.execute(
+                text(
+                    f'DROP TABLE IF EXISTS '
+                    f'"{target_schema}"."{table_name}"'
+                )
+            )
+
+            conn.execute(
+                text(
+                    f'ALTER TABLE "{target_schema}"."{staging_name}" '
+                    f'RENAME TO "{table_name}"'
+                )
+            )
+
+        print(
+            f"Published target table: "
+            f"{target_schema}.{table_name}"
+        )
 
     try:
         for table_name, df in chunks:
@@ -33,10 +83,18 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
             if df is None:
                 continue
 
-            if table_name not in initialized_tables:
+            # Finalize the previous table when extraction moves
+            # to the next table.
+            if table_name != active_table_name:
+
+                if active_table_name is not None:
+                    finalize_table(
+                        active_table_name,
+                        staging_table
+                    )
 
                 print(
-                    f"\nPreparing target table: "
+                    f"\nPreparing staging table for: "
                     f"{target_schema}.{table_name}"
                 )
 
@@ -56,28 +114,29 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
                     for column_info in source_columns
                 ]
 
-                target_table = Table(
-                    table_name,
+                staging_name = f"{table_name}__staging"
+
+                staging_table = Table(
+                    staging_name,
                     metadata,
                     *columns,
                     schema=target_schema
                 )
 
-                target_table.drop(engine, checkfirst=True)
-                target_table.create(engine)
+                # Remove any leftover staging table from an
+                # earlier unsuccessful run.
+                staging_table.drop(engine, checkfirst=True)
+                staging_table.create(engine)
 
-                target_tables[table_name] = target_table
-                initialized_tables.add(table_name)
                 loaded_counts[table_name] = 0
+                active_table_name = table_name
 
             if df.empty:
-                print("  Empty source table; structure created.")
+                print("Empty source table; staging structure created.")
                 continue
 
-            target_table = target_tables[table_name]
-
             print(
-                f"Loading {target_schema}.{table_name}: "
+                f"Loading {target_schema}.{table_name} staging: "
                 f"{len(df):,} rows"
             )
 
@@ -91,15 +150,21 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
 
                 with engine.begin() as conn:
                     conn.execute(
-                        target_table.insert(),
+                        staging_table.insert(),
                         batch
                     )
 
                 loaded_counts[table_name] += len(batch)
 
             print(
-                f"  Successfully loaded: "
-                f"{len(df):,} rows"
+                f"  Successfully staged: {len(df):,} rows"
+            )
+
+        # Finalize the last table after all chunks are consumed.
+        if active_table_name is not None:
+            finalize_table(
+                active_table_name,
+                staging_table
             )
 
         return loaded_counts

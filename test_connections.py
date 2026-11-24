@@ -1,5 +1,7 @@
 
 from sqlalchemy import text
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
+
 from src.db import (
     get_ecom_engine,
     get_saas_engine,
@@ -36,9 +38,15 @@ for name, engine_factory in connections.items():
             print(f"User: {row.connected_user}")
             print(f"Version: {row.postgres_version[:45]}")
 
-    except Exception as error:
+    except OperationalError as error:
         print(f"\n{name}: CONNECTION FAILED")
-        print(f"Error: {error}")
+        print("Reason: Database connection or operational error.")
+        print(f"Details: {error}")
+
+    except SQLAlchemyError as error:
+        print(f"\n{name}: DATABASE OPERATION FAILED")
+        print(f"Error type: {type(error).__name__}")
+        print(f"Details: {error}")
 
     finally:
         if engine is not None:
