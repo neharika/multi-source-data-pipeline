@@ -1,6 +1,6 @@
 
 import pandas as pd
-from sqlalchemy import inspect
+from sqlalchemy import MetaData, Table, inspect, select
 
 from src.config import ECOM_TABLES, EXTRACTION_CHUNK_SIZE
 from src.db import get_ecom_engine
@@ -8,13 +8,17 @@ from src.db import get_ecom_engine
 
 def extract_ecom_tables():
     """
-    Extract only the selected E-commerce tables in chunks.
+    Extract selected E-commerce tables in pages.
+
+    Each page is fetched using a short-lived source connection.
+    Rows are ordered by primary key to ensure deterministic pagination.
     """
 
     engine = get_ecom_engine()
 
     try:
         inspector = inspect(engine)
+
         available_tables = set(
             inspector.get_table_names(schema="ecom")
         )
@@ -31,38 +35,93 @@ def extract_ecom_tables():
             f"E-commerce tables selected: {len(ECOM_TABLES)}"
         )
 
-        for table in ECOM_TABLES:
-            print(f"\nExtracting: {table}")
+        for table_name in ECOM_TABLES:
+            print(f"\nExtracting: {table_name}")
 
-            query = f'SELECT * FROM "ecom"."{table}"'
+            # Retrieve the table's primary-key columns.
+            primary_key_info = inspector.get_pk_constraint(
+                table_name,
+                schema="ecom"
+            )
+
+            primary_key_columns = (
+                primary_key_info.get("constrained_columns") or []
+            )
+
+            if not primary_key_columns:
+                raise ValueError(
+                    f"No primary key found for ecom.{table_name}. "
+                    "Deterministic pagination requires a primary key."
+                )
+
+            # Reflect the source table structure.
+            source_table = Table(
+                table_name,
+                MetaData(),
+                schema="ecom",
+                autoload_with=engine
+            )
+
+            # Build an ordered query using every primary-key column.
+            statement = (
+                select(source_table)
+                .order_by(
+                    *[
+                        source_table.c[column]
+                        for column in primary_key_columns
+                    ]
+                )
+            )
+
+            offset = 0
             table_has_rows = False
 
-            for chunk in pd.read_sql_query(
-                query,
-                con=engine,
-                chunksize=EXTRACTION_CHUNK_SIZE
-            ):
+            while True:
+
+                page_query = (
+                    statement
+                    .limit(EXTRACTION_CHUNK_SIZE)
+                    .offset(offset)
+                )
+
+                # Fetch the complete page and close the connection
+                # before yielding the DataFrame to the loader.
+                with engine.connect() as connection:
+                    chunk = pd.read_sql_query(
+                        page_query,
+                        con=connection
+                    )
+
+                if chunk.empty:
+                    break
+
                 table_has_rows = True
 
                 print(
                     f"  Rows extracted: {len(chunk):,}"
                 )
 
-                yield table, chunk
+                offset += len(chunk)
 
+                yield table_name, chunk
+
+            # Preserve the table structure when the source table
+            # contains no records.
             if not table_has_rows:
-                empty_query = (
-                    f'SELECT * FROM "ecom"."{table}" LIMIT 0'
+
+                empty_query = statement.limit(0)
+
+                with engine.connect() as connection:
+                    empty_df = pd.read_sql_query(
+                        empty_query,
+                        con=connection
+                    )
+
+                print(
+                    "  Table is empty; preserving its columns."
                 )
 
-                empty_df = pd.read_sql_query(
-                    empty_query,
-                    con=engine
-                )
-
-                print("  Table is empty; preserving its columns.")
-
-                yield table, empty_df
+                yield table_name, empty_df
 
     finally:
         engine.dispose()
