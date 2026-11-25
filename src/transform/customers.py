@@ -1,8 +1,28 @@
 
+from numpy import identity, record
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import engine, text
 
 from src.db import get_target_engine
+
+def normalize_missing_values(df):
+    """
+    Convert Pandas missing values, empty strings,
+    and textual missing-value markers to Python None.
+    """
+
+    df = df.astype(object)
+
+    df = df.replace(
+        r"^\s*$|^(?i:nan)$",
+        None,
+        regex=True
+    )
+
+    return df.where(
+        pd.notna(df),
+        None
+    )
 
 
 def read_customer_sources():
@@ -37,7 +57,30 @@ def read_customer_sources():
 
     return ecom_customers, saas_accounts
 
+def get_first_order_dates():
+    """
+    Retrieve the earliest observed order timestamp
+    for each E-commerce customer.
+    """
 
+    engine = get_target_engine()
+
+    try:
+        query = text("""
+            SELECT
+                customer_id,
+                MIN(created_at) AS first_order_at
+            FROM raw_ecom.orders
+            WHERE customer_id IS NOT NULL
+            GROUP BY customer_id
+        """)
+
+        first_orders = pd.read_sql(query, engine)
+
+        return first_orders
+
+    finally:
+        engine.dispose()
 
 
 def standardize_customer_sources(ecom_customers, saas_accounts):
@@ -68,6 +111,23 @@ def standardize_customer_sources(ecom_customers, saas_accounts):
 
     customer_name = customer_name.replace("", pd.NA)
 
+    # Retrieve each customer's earliest observed order date.
+    first_orders = get_first_order_dates()
+
+    # Map the first order date to each customer.
+    first_order_map = first_orders.set_index(
+    "customer_id"
+    )["first_order_at"]
+
+    # Use the first order date when available.
+    # Otherwise, fall back to the customer creation date.
+    ecom_valid_from = (
+    ecom_customers["customer_id"]
+    .map(first_order_map)
+    .fillna(ecom_customers["created_at"])
+)
+
+
     ecom_dim = pd.DataFrame({
         "source_system": "ecom",
         "source_customer_id": ecom_customers["customer_id"],
@@ -80,7 +140,7 @@ def standardize_customer_sources(ecom_customers, saas_accounts):
         "account_type": None,
         "lifecycle_stage": ecom_customers["lifecycle_stage"],
         "acquisition_channel": ecom_customers["acquisition_channel"],
-        "valid_from": ecom_customers["created_at"],
+        "valid_from": ecom_valid_from,
         "valid_to": None,
         "is_current": True
     })
@@ -179,6 +239,7 @@ def load_initial_customers(customers):
                     "Initial load cannot run."
                 )
 
+            customers = normalize_missing_values(customers)
             records = customers.to_dict(orient="records")
 
             total_records = len(records)
@@ -199,3 +260,193 @@ def load_initial_customers(customers):
     finally:
         engine.dispose()
 
+def load_incremental_customers(customers):
+    """
+    Apply incremental SCD Type 2 changes to mart.dim_customer.
+    """
+    tracked_attributes = {
+        "ecom": [
+            "customer_name",
+            "email",
+            "country",
+            "city",
+            "lifecycle_stage",
+            "acquisition_channel"
+        ],
+        "saas": [
+            "customer_name",
+            "country",
+            "industry",
+            "employee_count",
+            "account_type"
+        ]
+    }
+
+    engine = get_target_engine()
+    
+    
+    try:
+        with engine.begin() as conn:
+
+            conn.execute(
+                text("SET LOCAL statement_timeout = '120s'")
+            )
+    
+            observation_time = conn.execute(
+                text("SELECT CURRENT_TIMESTAMP")
+            ).scalar_one()
+            current_customers = pd.read_sql(
+                text("""
+                    SELECT
+                        source_system,
+                        source_customer_id,
+                        customer_name,
+                        email,
+                        country,
+                        city,
+                        industry,
+                        employee_count,
+                        account_type,
+                        lifecycle_stage,
+                        acquisition_channel
+                    FROM mart.dim_customer
+                    WHERE is_current = TRUE
+                    FOR UPDATE
+                """),
+                conn
+            )
+            # Normalize missing values before comparison.
+            customers = normalize_missing_values(customers)
+            current_customers = normalize_missing_values(
+                current_customers
+            )
+
+            # Build a lookup using source identity.
+            current_lookup = {
+                (record["source_system"], record["source_customer_id"]): record
+                for record in current_customers.to_dict(orient="records")
+            }
+
+            # Convert incoming customer data into records.
+            incoming_records = customers.to_dict(orient="records")
+                        # Prepare lists for each type of customer record.
+            new_records = []
+            changed_records = []
+            unchanged_count = 0
+
+            # Compare incoming records with current dimension records.
+            for incoming in incoming_records:
+
+                identity = (
+                    incoming["source_system"],
+                    incoming["source_customer_id"]
+                )
+
+                current = current_lookup.get(identity)
+
+                # Case 1: New customer.
+                if current is None:
+                    new_records.append(incoming)
+                    continue
+
+                # Check whether any tracked attribute has changed.
+                has_changes = any(
+            not (
+                pd.isna(incoming[attribute])
+                and pd.isna(current[attribute])
+            )
+            and (
+                pd.isna(incoming[attribute])
+                or pd.isna(current[attribute])
+                or incoming[attribute] != current[attribute]
+            )
+            for attribute in tracked_attributes[
+                incoming["source_system"]
+            ]
+        )
+
+                # Case 2: Existing customer with changes.
+                if has_changes:
+                    changed_records.append(incoming)
+
+                # Case 3: Existing customer without changes.
+                else:
+                    unchanged_count += 1
+                # Expire the existing versions of changed customers.
+            for record in changed_records:
+
+                conn.execute(
+                    text("""
+                        UPDATE mart.dim_customer
+                        SET
+                            valid_to = :valid_to,
+                            is_current = FALSE
+                        WHERE source_system = :source_system
+                          AND source_customer_id = :source_customer_id
+                          AND is_current = TRUE
+                    """),
+                    {
+                        "valid_to": observation_time,
+                        "source_system": record["source_system"],
+                        "source_customer_id": record["source_customer_id"]
+                    }
+                )
+                # Combine new customers and changed customer versions.
+            records_to_insert = new_records + changed_records
+
+            # Insert new current versions.
+            if records_to_insert:
+
+                insert_query = text("""
+                    INSERT INTO mart.dim_customer (
+                        source_system,
+                        source_customer_id,
+                        customer_name,
+                        email,
+                        country,
+                        city,
+                        industry,
+                        employee_count,
+                        account_type,
+                        lifecycle_stage,
+                        acquisition_channel,
+                        valid_from,
+                        valid_to,
+                        is_current
+                    )
+                    VALUES (
+                        :source_system,
+                        :source_customer_id,
+                        :customer_name,
+                        :email,
+                        :country,
+                        :city,
+                        :industry,
+                        :employee_count,
+                        :account_type,
+                        :lifecycle_stage,
+                        :acquisition_channel,
+                        :valid_from,
+                        NULL,
+                        TRUE
+                    )
+                """)
+
+                for record in records_to_insert:
+
+                    identity = (
+                        record["source_system"],
+                        record["source_customer_id"]
+                )
+
+                    if identity in current_lookup or record["valid_from"] is None:
+                        record["valid_from"] = observation_time
+
+                conn.execute(insert_query, records_to_insert)
+            print("\nIncremental customer load completed successfully.")
+            print(f"New customers inserted: {len(new_records):,}")
+            print(f"Changed customers: {len(changed_records):,}")
+            print(f"Unchanged customers: {unchanged_count:,}")
+            print(f"Total records inserted: {len(records_to_insert):,}")
+    finally:
+        engine.dispose()
