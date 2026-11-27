@@ -1,6 +1,6 @@
 # Raw Data Landing Manifest
 
-**Extraction and validation timestamp:** 2026-11-24T22:44:09+05:30
+**Extraction and validation timestamp:** 2026-11-27T21:27:41+05:30
 
 ## Landing Summary
 

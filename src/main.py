@@ -5,6 +5,23 @@ from src.load.loaders import load_chunks
 from src.monitoring import validate_row_counts, write_manifest
 from src.db import get_ecom_engine, get_saas_engine
 
+from src.transform.customers import (
+    read_customer_sources,
+    standardize_customer_sources,
+    load_incremental_customers
+)
+
+from src.transform.facts import (
+    prepare_orders,
+    select_fact_order_columns,
+    load_fact_orders
+)
+
+from src.transform.saas_facts import (
+    prepare_subscription_events,
+    select_fact_subscription_event_columns,
+    load_fact_subscription_events
+)
 
 def run_pipeline():
     """Extract, load, and validate both source databases."""
@@ -57,11 +74,6 @@ def run_pipeline():
 
     all_validation = ecom_validation + saas_validation
 
-    write_manifest(
-        ecom_validation=ecom_validation,
-        saas_validation=saas_validation
-    )
-
     passed = sum(
         result["status"] == "PASS"
         for result in all_validation
@@ -82,7 +94,54 @@ def run_pipeline():
             f"Pipeline validation failed for {failed} tables."
         )
 
-    print("\nAll source and target row counts match.")
+    write_manifest(
+        ecom_validation=ecom_validation,
+        saas_validation=saas_validation
+    )
+
+    # --------------------------------------------------
+    # CUSTOMER DIMENSION TRANSFORMATION
+    # --------------------------------------------------
+
+    print("\n========== CUSTOMER DIMENSION TRANSFORMATION ==========\n")
+
+    ecom_customers, saas_accounts = read_customer_sources()
+
+    customers = standardize_customer_sources(
+        ecom_customers,
+        saas_accounts
+    )
+
+    load_incremental_customers(customers)
+
+    # --------------------------------------------------
+    # ORDER FACT TRANSFORMATION
+    # --------------------------------------------------
+
+    print("\n========== ORDER FACT TRANSFORMATION ==========\n")
+
+    orders = prepare_orders()
+
+    fact_orders = select_fact_order_columns(orders)
+
+    load_fact_orders(fact_orders)
+
+    # --------------------------------------------------
+    # SAAS SUBSCRIPTION EVENT FACT TRANSFORMATION
+    # --------------------------------------------------
+
+    print("\n========== SAAS SUBSCRIPTION EVENT TRANSFORMATION ==========\n")
+
+    events = prepare_subscription_events()
+
+    fact_subscription_events = select_fact_subscription_event_columns(
+        events
+    )
+
+    load_fact_subscription_events(fact_subscription_events)
+
+    print("\nAll implemented transformations completed successfully.")
+    print("\nAll raw source and target row counts match.")
 
     return {
         "ecom_counts": ecom_counts,

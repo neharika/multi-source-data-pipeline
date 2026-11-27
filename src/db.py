@@ -66,24 +66,11 @@ def get_saas_engine():
     )
 
 
-# Target warehouse engine (write access)
+# Target warehouse engine (Neon)
 def get_target_engine():
-    sslrootcert = os.getenv("TARGET_DB_SSLROOTCERT")
-
-    if not sslrootcert:
-        raise ValueError("TARGET_DB_SSLROOTCERT is missing")
-
-    certificate_path = PROJECT_ROOT / sslrootcert
-
-    if not certificate_path.is_file():
-        raise FileNotFoundError(
-            f"SSL certificate not found: {certificate_path}"
-        )
-
     return create_db_engine(
         "TARGET",
         ssl_args={
-            "sslmode": os.getenv("TARGET_DB_SSLMODE", "verify-full"),
-            "sslrootcert": str(certificate_path),
+            "sslmode": os.getenv("TARGET_DB_SSLMODE", "require"),
         },
     )

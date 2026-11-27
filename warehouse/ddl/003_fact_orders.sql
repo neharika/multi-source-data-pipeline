@@ -49,15 +49,3 @@ ON mart.fact_orders (created_at);
 -- Document the table grain.
 COMMENT ON TABLE mart.fact_orders IS
 'Grain: One row per unique e-commerce order, identified by order_id.';
-
-
-
-SELECT
-    column_name,
-    data_type,
-    is_nullable,
-    column_default
-FROM information_schema.columns
-WHERE table_schema = 'mart'
-  AND table_name = 'fact_orders'
-ORDER BY ordinal_position;

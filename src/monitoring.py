@@ -22,6 +22,11 @@ def validate_row_counts(source_engine, source_schema, target_schema):
     if source_schema not in table_mapping:
         raise ValueError(f"Invalid source schema: {source_schema}")
 
+    allowed_target_schemas = {"raw_ecom", "raw_saas"}
+
+    if target_schema not in allowed_target_schemas:
+        raise ValueError(f"Invalid target schema: {target_schema}")
+
     target_engine = get_target_engine()
     validation_results = []
 

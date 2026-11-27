@@ -30,8 +30,6 @@ def read_orders():
     finally:
         engine.dispose()
 
-
-
 def read_customer_dimension():
     """
     Read the customer dimension from the mart schema.
@@ -147,6 +145,12 @@ def attach_customer_keys(orders, customers):
     print(f"Orders with customer keys: {matched_orders:,}")
     print(f"Orders without customer keys: {unmatched_orders:,}")
 
+    if unmatched_orders > 0:
+        raise ValueError(
+            f"{unmatched_orders:,} orders could not be matched "
+            "to a customer dimension record."
+        )
+
     return orders
 
 
@@ -199,12 +203,15 @@ def select_fact_order_columns(orders):
     return fact_orders
 
 
-
 def load_fact_orders(fact_orders, batch_size=1000):
     """
     Load transformed orders into mart.fact_orders
     using Psycopg2 bulk inserts within one transaction.
     """
+
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero.")
+
     engine = get_target_engine()
 
     insert_query = """
@@ -221,6 +228,38 @@ def load_fact_orders(fact_orders, batch_size=1000):
             total
         )
         VALUES %s
+        ON CONFLICT (order_id)
+        DO UPDATE SET
+            customer_sk = EXCLUDED.customer_sk,
+            created_at = EXCLUDED.created_at,
+            status = EXCLUDED.status,
+            payment_status = EXCLUDED.payment_status,
+            subtotal = EXCLUDED.subtotal,
+            discount = EXCLUDED.discount,
+            tax = EXCLUDED.tax,
+            shipping_fee = EXCLUDED.shipping_fee,
+            total = EXCLUDED.total
+        WHERE (
+            mart.fact_orders.customer_sk,
+            mart.fact_orders.created_at,
+            mart.fact_orders.status,
+            mart.fact_orders.payment_status,
+            mart.fact_orders.subtotal,
+            mart.fact_orders.discount,
+            mart.fact_orders.tax,
+            mart.fact_orders.shipping_fee,
+            mart.fact_orders.total
+        ) IS DISTINCT FROM (
+            EXCLUDED.customer_sk,
+            EXCLUDED.created_at,
+            EXCLUDED.status,
+            EXCLUDED.payment_status,
+            EXCLUDED.subtotal,
+            EXCLUDED.discount,
+            EXCLUDED.tax,
+            EXCLUDED.shipping_fee,
+            EXCLUDED.total
+        )
     """
 
     insert_template = """
@@ -239,7 +278,12 @@ def load_fact_orders(fact_orders, batch_size=1000):
     """
 
     try:
-        records = fact_orders.to_dict(orient="records")
+        clean_orders = fact_orders.astype(object).where(
+            pd.notna(fact_orders),
+            None
+        )
+
+        records = clean_orders.to_dict(orient="records")
         total_records = len(records)
 
         with engine.begin() as conn:

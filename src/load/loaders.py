@@ -1,4 +1,4 @@
-
+from psycopg2.extras import execute_values
 from sqlalchemy import Column, MetaData, Table, inspect, text
 
 from src.config import LOAD_CHUNK_SIZE
@@ -142,19 +142,60 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
 
             clean_df = df.astype(object).where(df.notna(), None)
 
-            for start in range(0, len(clean_df), LOAD_CHUNK_SIZE):
+            # Build a safely quoted INSERT statement using source columns.
+            preparer = engine.dialect.identifier_preparer
 
-                batch = clean_df.iloc[
-                    start:start + LOAD_CHUNK_SIZE
-                ].to_dict(orient="records")
+            quoted_schema = preparer.quote(target_schema)
+            quoted_table = preparer.quote(staging_name)
 
-                with engine.begin() as conn:
-                    conn.execute(
-                        staging_table.insert(),
-                        batch
-                    )
+            column_names = [
+                column_info["name"] for column_info in source_columns
+            ]
 
-                loaded_counts[table_name] += len(batch)
+            quoted_columns = ", ".join(
+                preparer.quote(column_name)
+                for column_name in column_names
+            )
+
+            insert_query = (
+                f"INSERT INTO {quoted_schema}.{quoted_table} "
+                f"({quoted_columns}) VALUES %s"
+            )
+
+            # Load all batches for this staging table in one transaction.
+            with engine.begin() as conn:
+
+                conn.execute(
+                    text("SET LOCAL statement_timeout = '120s'")
+                )
+
+                raw_conn = conn.connection.driver_connection
+
+                with raw_conn.cursor() as cursor:
+
+                    for start in range(
+                        0, len(clean_df), LOAD_CHUNK_SIZE
+                    ):
+
+                        batch = list(
+                            clean_df.iloc[
+                                start:start + LOAD_CHUNK_SIZE
+                            ].itertuples(index=False, name=None)
+                        )
+
+                        execute_values(
+                            cursor,
+                            insert_query,
+                            batch,
+                            page_size=1000
+                        )
+
+                        loaded_counts[table_name] += len(batch)
+
+                        print(
+                            f"  Staged: {loaded_counts[table_name]:,} "
+                            f"of {len(clean_df):,} rows"
+                        )
 
             print(
                 f"  Successfully staged: {len(df):,} rows"

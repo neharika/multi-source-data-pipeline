@@ -1,7 +1,5 @@
-
-from numpy import identity, record
 import pandas as pd
-from sqlalchemy import engine, text
+from sqlalchemy import text
 
 from src.db import get_target_engine
 
@@ -329,7 +327,7 @@ def load_incremental_customers(customers):
 
             # Convert incoming customer data into records.
             incoming_records = customers.to_dict(orient="records")
-                        # Prepare lists for each type of customer record.
+            # Prepare lists for each type of customer record.
             new_records = []
             changed_records = []
             unchanged_count = 0
@@ -372,7 +370,7 @@ def load_incremental_customers(customers):
                 # Case 3: Existing customer without changes.
                 else:
                     unchanged_count += 1
-                # Expire the existing versions of changed customers.
+            # Expire the existing versions of changed customers.
             for record in changed_records:
 
                 conn.execute(
@@ -391,7 +389,7 @@ def load_incremental_customers(customers):
                         "source_customer_id": record["source_customer_id"]
                     }
                 )
-                # Combine new customers and changed customer versions.
+            # Combine new customers and changed customer versions.
             records_to_insert = new_records + changed_records
 
             # Insert new current versions.
@@ -442,7 +440,19 @@ def load_incremental_customers(customers):
                     if identity in current_lookup or record["valid_from"] is None:
                         record["valid_from"] = observation_time
 
-                conn.execute(insert_query, records_to_insert)
+                batch_size = 500
+
+                for start in range(0, len(records_to_insert), batch_size):
+                    batch = records_to_insert[start:start + batch_size]
+
+                    conn.execute(insert_query, batch)
+
+                    print(
+                        f"Customer records inserted: "
+                        f"{min(start + batch_size, len(records_to_insert)):,} "
+                        f"of {len(records_to_insert):,}",
+                        flush=True
+                    )
             print("\nIncremental customer load completed successfully.")
             print(f"New customers inserted: {len(new_records):,}")
             print(f"Changed customers: {len(changed_records):,}")
