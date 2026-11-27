@@ -1,7 +1,11 @@
 from psycopg2.extras import execute_values
 from sqlalchemy import Column, MetaData, Table, inspect, text
 
-from src.config import LOAD_CHUNK_SIZE
+from src.config import (
+    LOAD_CHUNK_SIZE,
+    ECOM_PRIMARY_KEYS,
+    SAAS_PRIMARY_KEYS,
+)
 from src.db import get_target_engine
 
 
@@ -13,14 +17,27 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
     table has been loaded and its row count verified.
 
     Source column types and nullability are preserved.
-    Primary keys, foreign keys, and source defaults are
-    intentionally not copied into the raw layer.
+    Logical primary-key indexes are recreated after replacement.
     """
 
-    allowed_schemas = {"raw_ecom", "raw_saas"}
+    # Validate source-to-target schema mapping.
+    allowed_mappings = {
+        "ecom": ("raw_ecom", ECOM_PRIMARY_KEYS),
+        "saas": ("raw_saas", SAAS_PRIMARY_KEYS),
+    }
 
-    if target_schema not in allowed_schemas:
-        raise ValueError(f"Invalid target schema: {target_schema}")
+    if source_schema not in allowed_mappings:
+        raise ValueError(
+            f"Unsupported source schema: {source_schema}"
+        )
+
+    expected_target, primary_keys = allowed_mappings[source_schema]
+
+    if target_schema != expected_target:
+        raise ValueError(
+            f"Invalid target schema for {source_schema}: "
+            f"expected {expected_target}, received {target_schema}"
+        )
 
     engine = get_target_engine()
     source_inspector = inspect(source_engine)
@@ -56,8 +73,11 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
             f"({staged_count:,} rows)"
         )
 
-        # PostgreSQL transactional DDL makes this replacement atomic.
+        # PostgreSQL transactional DDL makes replacement and
+        # index creation atomic.
         with engine.begin() as conn:
+
+            # Remove the existing target table.
             conn.execute(
                 text(
                     f'DROP TABLE IF EXISTS '
@@ -65,6 +85,7 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
                 )
             )
 
+            # Publish the staging table under the original name.
             conn.execute(
                 text(
                     f'ALTER TABLE "{target_schema}"."{staging_name}" '
@@ -72,8 +93,42 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
                 )
             )
 
+            # Recreate the logical primary-key index.
+            key_columns = primary_keys.get(table_name)
+
+            if not key_columns:
+                raise ValueError(
+                    f"No primary key configuration found for {table_name}"
+                )
+
+            preparer = engine.dialect.identifier_preparer
+
+            index_name = preparer.quote(
+                f"uq_{table_name}_logical_pk"
+            )
+            quoted_target = preparer.quote(table_name)
+            quoted_schema = preparer.quote(target_schema)
+
+            quoted_keys = ", ".join(
+                preparer.quote(column)
+                for column in key_columns
+            )
+
+            conn.execute(
+                text(
+                    f"CREATE UNIQUE INDEX {index_name} "
+                    f"ON {quoted_schema}.{quoted_target} "
+                    f"({quoted_keys})"
+                )
+            )
+
         print(
             f"Published target table: "
+            f"{target_schema}.{table_name}"
+        )
+
+        print(
+            f"Recreated unique index on: "
             f"{target_schema}.{table_name}"
         )
 
@@ -91,6 +146,12 @@ def load_chunks(chunks, target_schema, source_engine, source_schema):
                     finalize_table(
                         active_table_name,
                         staging_table
+                    )
+
+                # Validate that this table has a primary-key definition.
+                if table_name not in primary_keys:
+                    raise ValueError(
+                        f"No primary key configuration found for {table_name}"
                     )
 
                 print(
